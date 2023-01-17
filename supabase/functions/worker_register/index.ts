@@ -3,35 +3,119 @@
 // This enables autocomplete, go to definition, etc.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import * as djwt from "https://deno.land/x/djwt@v2.8/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.2.3"
 
-console.log("Hello from Functions!")
+const url =	Deno.env.get("SUPABASE_URL")
+const key =	Deno.env.get("SUPABASE_KEY")
 
-serve(async (req: Request)  => {
+
+function getRandomString(s: number) {
+  if (s % 2 == 1) {
+    throw new Deno.errors.InvalidData("Only even sizes are supported");
+  }
+
+  const buf = new Uint8Array(s / 2);
+  crypto.getRandomValues(buf);
+  let ret = "";
+  for (let i = 0; i < buf.length; ++i) {
+    ret += ("0" + buf[i].toString(16)).slice(-2);
+  }
+  return ret;
+}
+
+serve(async (req: Request)  => { try {
+	if (url == null || key == null) {
+		throw ("missing environment variable")
+	}
+
 	const { cpu,gpu,ram,public_ip,private_ip,deploy_token } = await req.json()
 
-	const key = await crypto.subtle.generateKey(
-	{ name: "HMAC", hash: "SHA-512" },
-	true,
-	["sign", "verify"],
-	);
+	const client = createClient( url, key)
 
-	const jwt = await djwt.create(
-		{ alg: "HS512", typ: "JWT" }, 
-		{ foo: "bar" }, 
-		key
-	);
+	// find user match the deploy token
+	const cluster_id = await async function (): Promise<number|Error>{
+		const ownerresult = await client.auth.getUser(deploy_token)
+		if(ownerresult.error != null) {
+			throw new Error(ownerresult.error.message)
+		}
 
+		const cluster = await client.from("Cluster")
+			.select("public_ip,id")
+			.eq( "public_ip", public_ip)
+			.eq( "owner", ownerresult.data.user.id)
+		
+		if(cluster.error != null) {
+			throw new Error(cluster.error.message)
+		}
 
-	const data = {
-		"token": jwt
+		if(cluster.count == 0){
+			const cluster_insert_result = await client.from("Cluster").insert({
+				public: false,
+				owner: ownerresult.data.user.id,
+				public_ip: public_ip,
+			}).select("id")
+
+			if (cluster_insert_result.error != null) {
+				throw new Error(`cluster insert error ${cluster_insert_result.error.message}`);
+			}
+
+			throw cluster_insert_result.data[0].id
+		} else {
+			throw cluster.data[0].id;
+		}
+	}()
+
+	if (cluster_id instanceof Error) {
+		throw cluster_id
+	}
+
+	const insert_result = await client.from("Cluster-Worker").insert({
+		cluster_id: cluster_id,
+		private_ip: private_ip,
+
+		ram: ram,
+		cpu: cpu,
+		gpu: gpu,
+	})
+
+	if(insert_result.error) {
+		throw (`unable to insert worker table ${insert_result.error.details}`);
+	}
+
+	const randpass = `${getRandomString(20)}`
+	const randemail = `${getRandomString(20)}@worker.account`
+	const user = await client.auth.admin.createUser({
+		email: `${randemail}@gmail.com`,
+		email_confirm: true,
+		password: randpass,
+  		data: { 
+			description: 'worker proxy account'	
+		}
+	})
+
+	const auth_response = await client.auth.signInWithPassword({
+		email: randemail,
+		password: randpass
+	})
+
+	if (user.error != null) {
+		throw (user.error.message);
 	}
 
 	return new Response(
-		JSON.stringify(data),
-		{ headers: { "Content-Type": "application/json" } },
-	)
-})
+		JSON.stringify( auth_response.data.session),
+		{ headers: { "Content-Type": "application/json" }, status:200 },
+	) 
+}catch(e){
+	console.log("Worker function run failed with error "+ e)
+	return new Response(
+		JSON.stringify( e),
+		{ 
+			headers: { "Content-Type": "application/json" },
+			status: 500,
+		},
+	) 
+}})
 
 // To invoke:
 // curl -i --location --request POST 'http://localhost:54321/functions/v1/' \
