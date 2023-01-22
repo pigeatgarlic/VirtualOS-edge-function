@@ -2,53 +2,27 @@
 // https://deno.land/manual/getting_started/setup_your_environment
 // This enables autocomplete, go to definition, etc.
 
+import { GenerateSBClient } from "../../utils/auth.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/v102/@supabase/supabase-js@2.2.3/dist/module/index"
+import { Schema } from "../../utils/schema.ts";
+import { EdgeWrapper } from "../../utils/wrapper.ts";
 
-const url =	Deno.env.get("SUPABASE_URL")
-const key =	Deno.env.get("SUPABASE_KEY")
 
-serve(async (req) => { try {
-	if (url == null || key == null) {
-		throw new Error("missing environment variable")
-	}
+serve(async (req: Request) =>{ return await EdgeWrapper(req,Handle) })
+async function Handle(req: Request){
+	const { 
+		access_token,
+		refresh_token,
+	} = await req.json()
 
-	const client = createClient( url, key)
-	const { access_token, refresh_token } = await req.json()
+	const session = await GenerateSBClient({access_token,refresh_token})
 
-	const res = await client.auth.setSession({
-		access_token: access_token,
-		refresh_token: refresh_token});
-	if (res.error != null) {
-		throw res.error
-	}
-
-	const workerRes = await client.from("WorkerNode")
+	const result = await session.from(Schema.WORKER_PROFILE)
 		.select("*")
-		.eq("account_id",res.data.user?.id);
+		.eq("account_id",(await (await session.auth.getUser()).data.user?.id))
 
-	if (workerRes.error != null) {
-		throw res.error
-	}
-
-	if (workerRes.count == null || workerRes.count > 1) {
-		throw new Error("Invalid account");
-	}
-
-	return new Response(
-		"true",
-		{ headers: { "Content-Type": "application/json" } },
-	)
-} catch(e) {
-	console.log("Worker function run failed with error "+ e)
-	return new Response(
-		JSON.stringify( e),
-		{ 
-			headers: { "Content-Type": "application/json" },
-			status: 500,
-		},
-	) 
-}})
+	return result.count == 1
+}
 
 // To invoke:
 // curl -i --location --request POST 'http://localhost:54321/functions/v1/' \

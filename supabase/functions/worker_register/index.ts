@@ -3,123 +3,66 @@
 // This enables autocomplete, go to definition, etc.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.2.3"
-
-const url =	Deno.env.get("SUPABASE_URL")
-const key =	Deno.env.get("SUPABASE_KEY")
-if (url == null || key == null) {
-	throw ("missing environment variable")
-}
+import { EdgeWrapper } from "../../utils/wrapper.ts";
+import { InsertWorkerInfor } from "../../utils/worker.ts";
+import { GenerateNonSigninableAccount, GenerateSBClient } from "../../utils/auth.ts";
+import { getIP } from "https://deno.land/x/get_ip/mod.ts";
 
 
-function getRandomString(s: number){
-  if (s % 2 == 1) {
-    throw ("Only even sizes are supported");
-  }
-
-  const buf = new Uint8Array(s / 2);
-  crypto.getRandomValues(buf);
-  let ret = "";
-  for (let i = 0; i < buf.length; ++i) {
-    ret += ("0" + buf[i].toString(16)).slice(-2);
-  }
-  return ret;
-}
-
-serve(async (req: Request)  => { try {
-	const client = createClient(url, key)
-
+serve(async (req: Request) =>{ return await EdgeWrapper(req,Handle) })
+async function Handle(req: Request){
 	const { 
 		cpu,
 		gpu,
 		ram,
-		public_ip,
+		os,
+
 		private_ip,
-		deploy_token 
+		public_ip,
 	} = await req.json()
 
+	const header = req.headers.get("Authorization");
+	if (header == null) {
+		throw `no owner token`
+	}
 
-	// find user match the deploy token
-	const cluster_id = await async function (): Promise<number>{
-		const ownerresult = await client.auth.getUser(deploy_token)
-		if(ownerresult.error != null) {
-			throw (ownerresult.error.message)
-		}
+	const {access_token,refresh_token} =  JSON.parse(header);
+	if (access_token == null || refresh_token == null) {
+		throw `missing header`
+	}
 
-		const cluster = await client.from("Cluster")
-			.select("public_ip,id")
-			.eq( "public_ip", public_ip)
-			.eq( "owner", ownerresult.data.user.id)
-		
-		if(cluster.error != null) {
-			throw new Error(cluster.error.message)
-		}
+	const owner = await GenerateSBClient(
+	{
+		access_token: access_token,
+		refresh_token: refresh_token
+	})
 
-		if(cluster.count == 0){
-			const cluster_insert_result = await client.from("Cluster").insert({
-				public: false,
-				owner: ownerresult.data.user.id,
-				public_ip: public_ip,
-			}).select("id")
+	const worker_account_session = await GenerateNonSigninableAccount();
+	const owner_info 		   = (await owner.auth.getUser()).data.user
+	if (owner_info == null) 
+		throw `unknown owner`
+	
 
-			if (cluster_insert_result.error != null) {
-				throw new Error(`cluster insert error ${cluster_insert_result.error.message}`);
-			}
-
-			throw cluster_insert_result.data[0].id
-		} else {
-			throw cluster.data[0].id;
-		}
-	}()
-
-	const insert_result = await client.from("Cluster-Worker").insert({
-		cluster_id: cluster_id,
-		private_ip: private_ip,
-
-		ram: ram,
+	await InsertWorkerInfor( 
+	{
+		access_token: worker_account_session.access_token,
+		refresh_token: worker_account_session.refresh_token,
+	},
+	{
 		cpu: cpu,
 		gpu: gpu,
+		ram: ram,
+		os: os,
+
+		private_ip: private_ip,
+		public_ip: public_ip,
+
+		owner_id: owner_info.id,
+		account_id: worker_account_session.user.id
 	})
 
-	if(insert_result.error) {
-		throw (`unable to insert worker table ${insert_result.error.details}`);
-	}
-
-	const randpass = `${getRandomString(20)}`
-	const randemail = `${getRandomString(20)}@worker.account`
-
-	const user = await client.auth.admin.createUser({
-		email: randemail,
-		password: randpass,
-
-		email_confirm: true,
-  		data: { 
-			description: 'worker proxy account'	
-		}
-	})
-
-	const auth_response = await client.auth.signInWithPassword({
-		email: randemail,
-		password: randpass
-	})
-
-	if (user.error != null) {
-		throw (user.error.message);
-	}
-
-	return new Response(
-		JSON.stringify( auth_response.data.session),
-		{ headers: { "Content-Type": "application/json" }, status:200 },
-	) 
-}catch(e){
-	return new Response(
-		JSON.stringify( e),
-		{ 
-			headers: { "Content-Type": "application/json" },
-			status: 500,
-		},
-	) 
-}})
+	return worker_account_session
+}
 
 // To invoke:
 // curl -i --location --request POST 'http://localhost:54321/functions/v1/' \
