@@ -7,11 +7,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.2.3"
 
 const url =	Deno.env.get("SUPABASE_URL")
 const key =	Deno.env.get("SUPABASE_KEY")
+if (url == null || key == null) {
+	throw ("missing environment variable")
+}
 
 
-function getRandomString(s: number) {
+function getRandomString(s: number){
   if (s % 2 == 1) {
-    throw new Deno.errors.InvalidData("Only even sizes are supported");
+    throw ("Only even sizes are supported");
   }
 
   const buf = new Uint8Array(s / 2);
@@ -24,19 +27,23 @@ function getRandomString(s: number) {
 }
 
 serve(async (req: Request)  => { try {
-	if (url == null || key == null) {
-		throw ("missing environment variable")
-	}
+	const client = createClient(url, key)
 
-	const { cpu,gpu,ram,public_ip,private_ip,deploy_token } = await req.json()
+	const { 
+		cpu,
+		gpu,
+		ram,
+		public_ip,
+		private_ip,
+		deploy_token 
+	} = await req.json()
 
-	const client = createClient( url, key)
 
 	// find user match the deploy token
-	const cluster_id = await async function (): Promise<number|Error>{
+	const cluster_id = await async function (): Promise<number>{
 		const ownerresult = await client.auth.getUser(deploy_token)
 		if(ownerresult.error != null) {
-			throw new Error(ownerresult.error.message)
+			throw (ownerresult.error.message)
 		}
 
 		const cluster = await client.from("Cluster")
@@ -65,10 +72,6 @@ serve(async (req: Request)  => { try {
 		}
 	}()
 
-	if (cluster_id instanceof Error) {
-		throw cluster_id
-	}
-
 	const insert_result = await client.from("Cluster-Worker").insert({
 		cluster_id: cluster_id,
 		private_ip: private_ip,
@@ -84,10 +87,12 @@ serve(async (req: Request)  => { try {
 
 	const randpass = `${getRandomString(20)}`
 	const randemail = `${getRandomString(20)}@worker.account`
+
 	const user = await client.auth.admin.createUser({
-		email: `${randemail}@gmail.com`,
-		email_confirm: true,
+		email: randemail,
 		password: randpass,
+
+		email_confirm: true,
   		data: { 
 			description: 'worker proxy account'	
 		}
@@ -107,7 +112,6 @@ serve(async (req: Request)  => { try {
 		{ headers: { "Content-Type": "application/json" }, status:200 },
 	) 
 }catch(e){
-	console.log("Worker function run failed with error "+ e)
 	return new Response(
 		JSON.stringify( e),
 		{ 
