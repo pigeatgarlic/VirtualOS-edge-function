@@ -6,6 +6,7 @@ export async function EdgeWrapper(req: Request,func: ((req: Request) => (any))) 
             { headers: { "Content-Type": "application/json" }, status:200 },
         ) 
     } catch(e) {
+        console.log(`error ${e}`)
         return new Response(
             JSON.stringify( e),
             { 
