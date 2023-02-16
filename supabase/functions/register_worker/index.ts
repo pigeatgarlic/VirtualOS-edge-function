@@ -14,15 +14,7 @@ const client_secret = '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'
 
 serve(async (req: Request) =>{ return await EdgeWrapper(req,Handle) })
 async function Handle(req: Request) {
-	const { 
-		cpu,
-		gpu,
-		ram,
-		os,
-
-		private_ip,
-		public_ip,
-	} = await req.json()
+	const metadata = await req.json()
 
 
 
@@ -52,7 +44,6 @@ async function Handle(req: Request) {
 	}
 
 
-	let owner_profile_id: string
 	let owner_id: string
 	{
 		const admin = GenerateAdminSBClient() 
@@ -70,20 +61,8 @@ async function Handle(req: Request) {
 		if(result == undefined) 
 			throw 'undefined user'
 
-		console.log(`signing up worker with owner id: ${result?.email}`)
+		console.log(`signing up worker with owner email: ${result?.email}`)
 		owner_id = result.id;
-	}
-
-	{
-		const admin = GenerateAdminSBClient() 
-		const {data,error} = await admin.from("users")
-			.select("*")
-
-		if(error != null) 
-			throw error.message
-
-		owner_profile_id = data.at(0)?.id
-		owner_id         = data.at(0)?.account_id
 	}
 
 	{
@@ -93,25 +72,22 @@ async function Handle(req: Request) {
 			password: password	
 		})
 
-		const {error} 			= await client.from(Schema.WORKER_PROFILE).update({
-			metadata: {
-			cpu: cpu,
-			gpu: gpu,
-			ram: ram,
-			os: os,
-
-			private_ip: private_ip,
-			public_ip: public_ip
-		}}).eq("account_id",user?.id).select("id,account_id")
+		const {error} = await client.from(Schema.WORKER_PROFILE).update({
+			metadata: metadata}).eq("account_id",user?.id).select("id,account_id")
 
 		if (error != null) 
 			throw error.message
 
-		await client.from(Schema.WORKER_OWNERSHIP).insert({
-			worker_id: user?.id,
-			user_id: owner_profile_id,
+		
+
+		const owner = await client.from(Schema.RELATIONSHIP).insert({
+			user_account:   owner_id,
+			worker_account: user?.id,
 			o_type: 'OWNER'
 		})
+
+		if (owner.error != null) 
+			throw owner.error.message
 
 		return {
 			username: username,
