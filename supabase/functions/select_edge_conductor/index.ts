@@ -3,10 +3,8 @@
 // This enables autocomplete, go to definition, etc.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { GenerateAdminSBClient, GenerateAnonSBClient, GenerateNonSigninableAccount } from "../utils/auth.ts";
-import { getRandomString } from "../utils/rand.ts";
-import { Schema } from "../utils/schema.ts";
 import { EdgeWrapper } from "../utils/wrapper.ts";
+import { select_region } from "../utils/turn.ts";
 
 
 const IPGeolocation = "6e9cb53e26ad471c89b02adec2ba0250"
@@ -27,6 +25,11 @@ interface RTCConfiguration {
     iceTransportPolicy?: RTCIceTransportPolicy;
     rtcpMuxPolicy?: RTCRtcpMuxPolicy;
 }
+
+
+
+
+
 
 serve(async (req: Request) =>{ return await EdgeWrapper(req,Handle) })
 async function Handle(req: Request) {
@@ -56,45 +59,17 @@ async function Handle(req: Request) {
   } = await info_resp.json()
 
 
-  const admin = await GenerateAdminSBClient()
-  const {error,}= await admin.from(Schema.REGIONAL_PROXY).select("*")
-
-  const insertResult = await admin.from(Schema.REGIONAL_PROXY).update({
-    ip : public_ip,
-    metadata : {
-      region: {
-        continent_code : continent_code,
-        country_code2  : country_code2,
-        city           : city,
-        latitude       : latitude,
-        longitude      : longitude,
-        isp            : isp,
-      }, 
-
-      RTCConfiguration : {
-        iceServers: [{
-          urls: `stun:${public_ip}:${turn_port}`
-        },{
-          urls: `turn:${public_ip}:${turn_port}`,
-          credential: randpass,
-          username: randuser
-        }]
-      } as RTCConfiguration
-    }
-  }).eq("account_id",uuid)
-
-  if (insertResult.error != null) 
-    throw insertResult.error.message
-
-  return {
-    username: username,
-    password: password,
-
-    IceServer : {
-      credential: randpass,
-      username: randuser
-    } as RTCIceServer
+  console.log(`turn server request from ${city} ${country_code2} ${continent_code}`)
+  const selection  = await select_region(continent_code)
+  if (selection == null) {
+    throw "unable to find turn server in this region"
   }
+
+  const { metadata,ip } = selection
+  console.log(`match from client ${public_ip} at ${city} ${country_code2} ${continent_code} to turn server ${ip}`)
+
+
+  return metadata.RTCConfiguration
 }
 
 
