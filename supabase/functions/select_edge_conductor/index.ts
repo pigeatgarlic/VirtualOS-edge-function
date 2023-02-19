@@ -9,11 +9,7 @@ import { Schema } from "../utils/schema.ts";
 import { EdgeWrapper } from "../utils/wrapper.ts";
 
 
-const EdgeSecret = "conlongamtoi"
-const EdgeID     = "conlongamtoi"
-
 const IPGeolocation = "6e9cb53e26ad471c89b02adec2ba0250"
-
 
 type RTCRtcpMuxPolicy = "require";
 type RTCIceTransportPolicy = "all" | "relay";
@@ -34,15 +30,10 @@ interface RTCConfiguration {
 
 serve(async (req: Request) =>{ return await EdgeWrapper(req,Handle) })
 async function Handle(req: Request) {
-  const client_secret = req.headers.get("client_secret")
-  const client_id     = req.headers.get("client_id")
-  if (client_secret != EdgeSecret || client_id != EdgeID) {
-    throw "unauthorized"
-  }
 
 
-	const { public_ip, turn_port } = await req.json()
-  if (public_ip == null || turn_port == null) {
+	const { public_ip } = await req.json()
+  if (public_ip == null) {
     throw "invalid user request"
   }
 
@@ -50,6 +41,7 @@ async function Handle(req: Request) {
   const info_resp = await fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=${IPGeolocation}&ip=${public_ip}`, {
     method: "GET"
   })
+
   if (!info_resp.ok) {
     throw 'fail to lookup ip ' + await info_resp.text()
   }
@@ -63,16 +55,13 @@ async function Handle(req: Request) {
     isp
   } = await info_resp.json()
 
-  const {uuid,username,password} = await GenerateNonSigninableAccount(".proxy@thinkmay.net")
-
-	const randpass     =  getRandomString(20)
-	const randuser     =  getRandomString(20)
 
   const admin = await GenerateAdminSBClient()
+  const {error,}= await admin.from(Schema.REGIONAL_PROXY).select("*")
+
   const insertResult = await admin.from(Schema.REGIONAL_PROXY).update({
     ip : public_ip,
     metadata : {
-
       region: {
         continent_code : continent_code,
         country_code2  : country_code2,

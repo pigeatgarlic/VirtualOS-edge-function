@@ -1,8 +1,8 @@
 export class Env {
     constructor(){
-        const url =	    Deno.env.get("APP_SUPABASE_URL")
-        const admin_key =	Deno.env.get("APP_SUPABASE_ADMIN_KEY")
-        const anon_key =	Deno.env.get("APP_SUPABASE_ANON_KEY")
+        const url =	        Deno.env.get("SUPABASE_URL")
+        const admin_key =	Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")
+        const anon_key =	Deno.env.get("SUPABASE_ANON_KEY")
         if (url == null || anon_key == null || admin_key == null) {
             throw ("missing environment variable")
         }

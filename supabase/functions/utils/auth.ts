@@ -1,4 +1,4 @@
-import { Session, SupabaseClient } from "https://esm.sh/v102/@supabase/supabase-js@2.2.3/dist/module/index";
+  import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.2.3'
 import { Env } from "./env.ts";
 import { getRandomString } from "./rand.ts";
 
@@ -16,9 +16,9 @@ export function GenerateAdminSBClient(): SupabaseClient<any, "auth", any> {
 
 
 
-export async function GenerateNonSigninableAccount(): Promise<{client: SupabaseClient<any, "public", any>,username: string,password: string}> {
+export async function GenerateNonSigninableAccount(domain: string): Promise<{uuid: string,username: string,password: string}> {
 	const randpass     =  `${getRandomString(20)}`
-	const randemail    =  `${getRandomString(20)}@worker.com`
+	const randemail    =  `${getRandomString(20)}${domain}`
 
     const admin = await GenerateAdminSBClient();
 	const { data, error } = await admin.auth.admin.createUser({
@@ -44,8 +44,12 @@ export async function GenerateNonSigninableAccount(): Promise<{client: SupabaseC
     if (result.error != null) 
         throw error
 
+    if (result.data.user?.id == null) 
+        throw "no uuid generated"
+    
+
     return {
-        client: account,
+        uuid: result.data.user?.id,
         username: randemail,
         password: randpass
     }

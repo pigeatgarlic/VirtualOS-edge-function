@@ -3,7 +3,7 @@
 // This enables autocomplete, go to definition, etc.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { GenerateAdminSBClient, GenerateNonSigninableAccount  } from "../utils/auth.ts";
+import { GenerateAdminSBClient, GenerateAnonSBClient, GenerateNonSigninableAccount  } from "../utils/auth.ts";
 import { Schema } from "../utils/schema.ts";
 import { EdgeWrapper } from "../utils/wrapper.ts";
 
@@ -66,7 +66,9 @@ async function Handle(req: Request) {
 	}
 
 	{
-		const {client,username,password} = await GenerateNonSigninableAccount()
+		const {uuid,username,password} = await GenerateNonSigninableAccount(".worker@thinkmay.net")
+
+		const client = GenerateAnonSBClient()
 		const {data:{user}} 		= await client.auth.signInWithPassword({
 			email: username,
 			password: password	
@@ -77,8 +79,6 @@ async function Handle(req: Request) {
 
 		if (error != null) 
 			throw error.message
-
-		
 
 		const owner = await client.from(Schema.RELATIONSHIP).insert({
 			user_account:   owner_id,
