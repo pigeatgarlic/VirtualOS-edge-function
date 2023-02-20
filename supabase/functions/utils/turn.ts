@@ -19,7 +19,7 @@ export async function select_region (continent_code: string) : Promise<{metadata
       const last_update = Date.parse(element.last_update);
       const from_now = Date.now().valueOf() - last_update.valueOf()
       console.log(`turn server ${element.ip}, last_update from now: ${formatTime(from_now)}`)
-      if (element.metadata.region.continent_code == continent_code && from_now < 60000) {
+      if (element.metadata.region.continent_code == continent_code && from_now < 10 * 1000) { // 10 sec
         return {
           metadata: element.metadata,
           ip: element.ip
