@@ -2,7 +2,7 @@ import { GenerateAdminSBClient } from "./auth.ts";
 import { Schema } from "./schema.ts";
 import { formatTime } from "./time.ts";
 
-export async function select_region (continent_code: string) : Promise<{metadata: {RTCConfiguration: any; region:any },ip: string} | null>  
+export async function select_region (country_code2: string, continent_code: string) : Promise<{metadata: {RTCConfiguration: any; region:any },ip: string} | null>  
 {
   const admin = await GenerateAdminSBClient()
   const {error,data}= await admin.from(Schema.REGIONAL_PROXY).select("metadata,ip,last_update,id")
@@ -19,7 +19,10 @@ export async function select_region (continent_code: string) : Promise<{metadata
       const last_update = Date.parse(element.last_update);
       const from_now = Date.now().valueOf() - last_update.valueOf()
       console.log(`turn server ${element.ip}, last_update from now: ${formatTime(from_now)}`)
-      if (element.metadata.region.continent_code == continent_code && from_now < 10 * 1000) { // 10 sec
+      if (
+        element.metadata.region.country_code2 == country_code2 && 
+        element.metadata.region.continent_code == continent_code && 
+        from_now < 10 * 1000) { // 10 sec
         return {
           metadata: element.metadata,
           ip: element.ip

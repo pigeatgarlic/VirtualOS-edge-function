@@ -60,7 +60,7 @@ async function Handle(req: Request) {
 
 
   console.log(`turn server request from ${city} ${country_code2} ${continent_code}`)
-  const selection  = await select_region(continent_code)
+  const selection  = await select_region(country_code2,continent_code)
   if (selection == null) {
     throw "unable to find turn server in this region"
   }
