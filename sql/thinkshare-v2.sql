@@ -6,7 +6,7 @@ create table public.account_session (
   account_id    uuid references auth.users not null,
 
   start_at   timestamp with time zone default timezone('utc'::text, now()) not null,
-  end_at     timestamp with time zone
+  last_check timestamp with time zone default timezone('utc'::text, now()) not null,
 );
 comment on table public.account_session is 'Individual messages sent by each user.';
 
@@ -47,8 +47,8 @@ comment on column public.worker_profile.account_id   is 'public.auth column refe
 
 
 
--- account relationship
-create type public.relationship as enum ('OWNER');
+-- account account_relationship_type
+create type public.account_relationship_type as enum ('OWNER');
 drop table if exists public.account_relationship;
 create table public.account_relationship (
   id            bigint generated always as identity   primary key,
@@ -59,7 +59,7 @@ create table public.account_relationship (
   created_at    timestamp with time zone default timezone('utc'::text, now()) not null,
   ended_at      timestamp with time zone,
 
-  o_type        relationship,
+  o_type        account_relationship_type,
   metadata      jsonb default '{}'
 );
 comment on table public.account_relationship is 'Ownership orchestra accessability between specific worker and user';
@@ -151,7 +151,7 @@ $$
             insert into public.user_profile(account_id, metadata, email) 
                 values (new.id,new.raw_user_meta_data,new.email);
 
-            -- TODO insert admin relationship
+            -- TODO insert admin account_relationship_type
         end if;
 
         return new;
@@ -255,7 +255,7 @@ $$
     where
       worker_account = authorize_session.worker_session and
       user_account   = authorize_session.user_session and
-      relationship       = authorize_session.relationship
+      account_relationship_type   = authorize_session.account_relationship_type
     into count;
 
     return count > 0;
@@ -270,7 +270,7 @@ language plpgsql security definer;
 create function public.authorize_account(
   user_account   uuid,
   worker_account uuid,
-  relation       relationship
+  relation       account_relationship_type
 )
 returns boolean as
 $$

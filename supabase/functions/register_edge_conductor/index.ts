@@ -69,7 +69,7 @@ async function Handle(req: Request) {
 	const randuser     =  getRandomString(20)
 
   const admin = await GenerateAdminSBClient()
-  const insertResult = await admin.from(Schema.REGIONAL_PROXY).update({
+  const insertResult = await admin.from(("regional_proxy") as Schema).update({
     ip : public_ip,
     metadata : {
 

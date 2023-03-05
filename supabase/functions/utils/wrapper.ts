@@ -14,7 +14,7 @@ export async function EdgeWrapper(req: Request,func: ((req: Request) => (any))) 
             JSON.stringify( e),
             { 
                 headers: { "Content-Type": "application/json" },
-                status: 500,
+                status: 400,
             },
         ) 
     }

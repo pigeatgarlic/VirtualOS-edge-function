@@ -7,21 +7,19 @@ import { GenerateAdminSBClient, GenerateAnonSBClient, GenerateNonSigninableAccou
 import { Schema } from "../utils/schema.ts";
 import { EdgeWrapper } from "../utils/wrapper.ts";
 
-const req_url   = 'https://oauth2.googleapis.com/token'
-const client_id = '610452128706-mplpl7mhld1u05p510rk9dino8phcjb8.apps.googleusercontent.com'
-const client_secret = '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'
-
+const req_url   		= 'https://oauth2.googleapis.com/token'
+const client_id 		= '610452128706-mplpl7mhld1u05p510rk9dino8phcjb8.apps.googleusercontent.com'
+const client_secret 	= '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'
+const info_req_url   	= "https://www.googleapis.com/oauth2/v3/userinfo"
 
 serve(async (req: Request) =>{ return await EdgeWrapper(req,Handle) })
 async function Handle(req: Request) {
 	const metadata = await req.json()
-
-
-
+	const oauth2token = req.headers.get("Oauth2-Token");
 
 	let email: string
 	{
-		const token = `${req.headers.get("Oauth2-Token")}&client_id=${client_id}&client_secret=${client_secret}`
+		const token = `${oauth2token}&client_id=${client_id}&client_secret=${client_secret}`
 		const resp = await fetch(req_url,{
 			body: token,
 			method: "POST",
@@ -30,12 +28,11 @@ async function Handle(req: Request) {
 			},
 		})
 
-		if (resp.status != 200) {
-		throw (resp.status)
-		}
+		if (resp.status != 200) 
+			throw (resp.status)
 
 		const data = await resp.clone().json()
-		const info_resp = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${data.access_token}`, {
+		const info_resp = await fetch(`${info_req_url}?access_token=${data.access_token}`, {
 			method: "GET"
 		})
 
@@ -65,35 +62,33 @@ async function Handle(req: Request) {
 		owner_id = result.id;
 	}
 
+	let ret = {}
 	{
 		const {uuid,username,password} = await GenerateNonSigninableAccount(".worker@thinkmay.net")
 
-		const client = GenerateAnonSBClient()
-		const {data:{user}} 		= await client.auth.signInWithPassword({
-			email: username,
-			password: password	
-		})
-
-		const {error} = await client.from(Schema.WORKER_PROFILE).update({
-			metadata: metadata}).eq("account_id",user?.id).select("id,account_id")
+		const client = GenerateAdminSBClient()
+		const {error} = await client.from(("worker_profile") as Schema).update({
+			metadata: metadata
+		}).eq("account_id",uuid)
 
 		if (error != null) 
 			throw error.message
 
-		const owner = await client.from(Schema.RELATIONSHIP).insert({
+		const owner = await client.from(('account_relationship') as Schema).insert({
 			user_account:   owner_id,
-			worker_account: user?.id,
+			worker_account: uuid,
 			o_type: 'OWNER'
 		})
 
 		if (owner.error != null) 
 			throw owner.error.message
 
-		return {
+		ret = {
 			username: username,
 			password: password
 		}
 	}
+	return ret
 }
 
 // To invoke:

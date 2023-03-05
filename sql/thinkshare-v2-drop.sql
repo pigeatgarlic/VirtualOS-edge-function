@@ -18,6 +18,6 @@ drop function if exists public.session_owner;
 drop function if exists public.authorize_account;
 drop function if exists public.authorize_session;
 
-drop type  if exists  public.relationship;
+drop type  if exists  public.account_relationship_type;
 drop type  if exists  public.session_relationship_type;
 

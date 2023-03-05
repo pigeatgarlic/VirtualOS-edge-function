@@ -5,7 +5,7 @@ import { formatTime } from "./time.ts";
 export async function select_region (country_code2: string, continent_code: string) : Promise<{metadata: {RTCConfiguration: any; region:any },ip: string} | null>  
 {
   const admin = await GenerateAdminSBClient()
-  const {error,data}= await admin.from(Schema.REGIONAL_PROXY).select("metadata,ip,last_update,id")
+  const {error,data}= await admin.from('regional_proxy' as Schema).select("metadata,ip,last_update,id")
 
   if (error != null) {
     throw error
@@ -31,7 +31,7 @@ export async function select_region (country_code2: string, continent_code: stri
 
       if (from_now > 1000 * 60 * 60 * 24) { // one day
         console.log(`deleting turn server ${element.ip} for unactive for the last 1 day`)
-        await admin.from(Schema.REGIONAL_PROXY).delete().eq("ip",element.ip);
+        await admin.from('regional_proxy' as Schema).delete().eq("ip",element.ip);
       }
 
 
@@ -40,7 +40,7 @@ export async function select_region (country_code2: string, continent_code: stri
         console.log(`model error : ${JSON.stringify(error)}`)
         console.log(`deleting turn server ${element.id} for invalid model`)
         try {
-            await admin.from(Schema.REGIONAL_PROXY).delete().eq("id",element.id);
+            await admin.from('regional_proxy' as Schema).delete().eq("id",element.id);
         } catch (error_delete) {
             console.log(`unable to delete : ${JSON.stringify(error_delete)}`)
         }
