@@ -3,9 +3,14 @@
 // This enables autocomplete, go to definition, etc.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import * as twilio from "https://deno.land/x/twilio@0.1.1/Twilio.ts";
 import { EdgeWrapper } from "../utils/wrapper.ts";
 import { select_region } from "../utils/turn.ts";
+import { Env } from "../utils/env.ts";
 
+const env = new Env()
+const TWILIO_ACCOUNT_SID =""
+const TWILIO_AUTH_TOKEN  =""
 
 const IPGeolocation = "6e9cb53e26ad471c89b02adec2ba0250"
 
@@ -62,7 +67,20 @@ async function Handle(req: Request) {
   console.log(`turn server request from ${city} ${country_code2} ${continent_code}`)
   const selection  = await select_region(country_code2,continent_code)
   if (selection == null) {
-    throw "unable to find turn server in this region"
+    // curl -X POST "https://api.twilio.com/2010-04-01/Accounts/$TWILIO_ACCOUNT_SID/Tokens.json" \
+    //   -u $TWILIO_ACCOUNT_SID:$TWILIO_AUTH_TOKEN
+    const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Tokens.json`,{
+      method: 'POST',
+      headers: {
+        "Authorization" : `Bearer ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`
+      }
+    })
+
+    if (resp.status != 200) 
+      throw `not valid twilio account`
+      
+    const {ice_servers} = await resp.json()
+    return { iceServers: ice_servers }
   }
 
   const { metadata,ip } = selection

@@ -6,12 +6,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { GenerateAdminSBClient } from "../utils/auth.ts";
 import { Schema } from "../utils/schema.ts";
 import { EdgeWrapper } from "../utils/wrapper.ts";
-import { Env } from "../utils/env.ts";
-import { createHash, Hash } from "https://deno.land/std@0.110.0/node/crypto.ts";
-
-
-const ENV = new Env()
-
+import { Hash } from "https://deno.land/std@0.110.0/node/crypto.ts";
 
 
 const precheck = async(worker_session_id: number) => {
@@ -97,11 +92,13 @@ async function Handle(req: Request) {
 	
 
 	// TODO better hash
-	return new Hash("SHA-512").update(`${JSON.stringify({
+
+	return btoa(JSON.stringify({
 		metadata: metadata,
 		start_at: insertres.data.at(0)?.start_at,
+		is_server: false,
 		id: insertres.data.at(0)?.id,
-	})}`)
+	}))
 }
 
 

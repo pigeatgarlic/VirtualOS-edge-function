@@ -12,7 +12,8 @@ import { EdgeWrapper } from "../utils/wrapper.ts";
 const EdgeSecret = "conlongamtoi"
 const EdgeID     = "conlongamtoi"
 
-const IPGeolocation = "6e9cb53e26ad471c89b02adec2ba0250"
+const IPGeolocation    = "6e9cb53e26ad471c89b02adec2ba0250"
+const IPGeolocationURL = "https://api.ipgeolocation.io/ipgeo"
 
 
 type RTCRtcpMuxPolicy = "require";
@@ -47,7 +48,7 @@ async function Handle(req: Request) {
   }
 
 
-  const info_resp = await fetch(`https://api.ipgeolocation.io/ipgeo?apiKey=${IPGeolocation}&ip=${public_ip}`, {
+  const info_resp = await fetch(`${IPGeolocationURL}?apiKey=${IPGeolocation}&ip=${public_ip}`, {
     method: "GET"
   })
   if (!info_resp.ok) {

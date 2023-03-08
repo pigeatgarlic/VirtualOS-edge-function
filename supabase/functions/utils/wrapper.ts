@@ -1,4 +1,4 @@
-export async function EdgeWrapper(req: Request,func: ((req: Request) => (any))) : Promise<Response> {
+export async function EdgeWrapper(req: Request,func: ((req: Request) => Promise<any>)) : Promise<Response> {
     console.log(`user request body: ${JSON.stringify(await req.clone().json())}`)
 
 
