@@ -2,7 +2,7 @@ import { GenerateAdminSBClient } from "./auth.ts";
 import { Schema } from "./schema.ts";
 import { formatTime } from "./time.ts";
 
-export async function select_region (country_code2: string, continent_code: string) : Promise<{metadata: {RTCConfiguration: any; region:any },ip: string} | null>  
+export async function select_region (country_code2: string | null, continent_code: string | null) : Promise<{metadata: {RTCConfiguration: any; region:any },ip: string} | null>  
 {
   const admin = await GenerateAdminSBClient()
   const {error,data}= await admin.from('regional_proxy' as Schema).select("metadata,ip,last_update,id")
@@ -29,8 +29,8 @@ export async function select_region (country_code2: string, continent_code: stri
         }
       }
 
-      if (from_now > 1000 * 60 * 60 * 24) { // one day
-        console.log(`deleting turn server ${element.ip} for unactive for the last 1 day`)
+      if (from_now > 1000 * 60 * 10) { // 10 minutes
+        console.log(`deleting turn server ${element.ip} for unactive for the last 10 minutes`)
         await admin.from('regional_proxy' as Schema).delete().eq("ip",element.ip);
       }
 
